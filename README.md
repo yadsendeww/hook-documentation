@@ -134,36 +134,44 @@ Every hook module must implement the following interface functions. Go to here: 
 
 ### 1. Pool Creation Flow
 
-```
-User → Router::create_pool() → HookFactory::create_pool() → Hook::create_pool()
-                                                           ↓
-                                                      Pool State Creation
-                                                           ↓
-User ← Router::PoolCreated event ← HookFactory ← Hook::Created event
+```mermaid
+flowchart LR
+    User --> Router[Router::create_pool]
+    Router --> Factory[HookFactory::create_pool]
+    Factory --> Hook[Hook::create_pool]
+    Hook --> State[Pool state creation]
+    State --> Event[Hook::Created event]
+    Event --> FactoryBack[HookFactory processing]
+    FactoryBack --> RouterEvent[Router::PoolCreated event]
+    RouterEvent --> User
 ```
 
 ### 2. Add Liquidity Flow
 
-```
-User → Router::add_liquidity() → HookFactory::add_liquidity() → Hook::add_liquidity()
-                                                              ↓
-                                                        Asset Calculation
-                                                              ↓
-                                                      Position Management
-                                                              ↓
-User ← Router::(LiquidityAdded event and do_accounting) ← HookFactory (hook_factory::Tx) ← Hook::Added event
+```mermaid
+flowchart LR
+    User --> Router[Router::add_liquidity]
+    Router --> Factory[HookFactory::add_liquidity]
+    Factory --> Hook[Hook::add_liquidity]
+    Hook --> Calc[Asset calculation]
+    Calc --> Position[Position management]
+    Position --> Event[Hook::Added event]
+    Event --> Tx[HookFactory / hook_factory::Tx]
+    Tx --> RouterEvent[Router::LiquidityAdded event + do_accounting]
 ```
 
 ### 3. Remove Liquidity Flow
 
-```
-User → Router::remove_liquidity() → HookFactory::remove_liquidity() → Hook::remove_liquidity()
-                                                                   ↓
-                                                            Asset Calculation
-                                                                   ↓
-                                                          Position Management
-                                                                   ↓
-User ← Router::(LiquidityRemoved event and do_accounting) ← HookFactory (hook_factory::Tx) ← Hook::Removed event
+```mermaid
+flowchart LR
+    User --> Router[Router::remove_liquidity]
+    Router --> Factory[HookFactory::remove_liquidity]
+    Factory --> Hook[Hook::remove_liquidity]
+    Hook --> Calc[Asset calculation]
+    Calc --> Position[Position management]
+    Position --> Event[Hook::Removed event]
+    Event --> Tx[HookFactory / hook_factory::Tx]
+    Tx --> RouterEvent[Router::LiquidityRemoved event + do_accounting]
 ```
 
 ### 4. Swap Flow
@@ -178,7 +186,6 @@ flowchart LR
     Exchange --> Event[Hook::Swapped event]
     Event --> Tx[HookFactory / hook_factory::Tx]
     Tx --> RouterEvent[Router::Swapped event + do_accounting]
-    RouterEvent --> User
 ```
 
 ### 5. Collect Fee Flow
@@ -193,7 +200,6 @@ flowchart LR
     Dist --> Event[Hook::CollectedFee event]
     Event --> Tx[HookFactory / hook_factory::Tx]
     Tx --> RouterEvent[Router::FeeCollected event + do_accounting]
-    RouterEvent --> User
 ```
 
 ### 6. Pool Operation Flow
