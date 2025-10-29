@@ -212,16 +212,16 @@ Hook (asset accounting) → HookFactory (hook_factory::Tx) → Router::do_accoun
 
 ```mermaid
 flowchart TD
-    U[User] --> S[Router::swap()]
-    S --> PF[hook_factory::extract_platform_fee()]
-    PF --> HF[HookFactory::swap()]
-    HF --> H[Hook::swap()]
-    H --> TX[Swap Tx vector<br/>(hook_factory::Tx)]
-    TX --> ACC1[Router::do_accounting(txs)]
+    U[User] --> S[Router::swap]
+    S --> PF[hook_factory::extract_platform_fee]
+    PF --> HF[HookFactory::swap]
+    HF --> H[Hook::swap - swap with deducted pool fee rate]
+    H --> TX[Swap Tx vector / hook_factory::Tx]
+    TX --> ACC1[Router::do_accounting]
     ACC1 --> EVT[Router::Swapped event emission]
     EVT --> D{platform fee amount > 0?}
     D -->|No| DONE[Flow complete]
-    D -->|Yes| ACC2[Router::do_accounting([pf tx])]
+    D -->|Yes| ACC2[Router::do_accounting]
     ACC2 --> RES[Platform fee reserve accrual]
 ```
 
