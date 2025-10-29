@@ -1,9 +1,10 @@
 module tapp::hook_factory {
-    use std::option::{Option, none};
+    use std::bcs::to_bytes;
+    use std::option::{Option, none, some};
     use std::signer::address_of;
     use std::vector::{range};
     use aptos_std::bcs_stream;
-    use aptos_std::bcs_stream::{BCSStream, deserialize_u64, deserialize_vector};
+    use aptos_std::bcs_stream::{BCSStream, deserialize_bool, deserialize_u64, deserialize_vector};
     use aptos_std::ordered_map;
     use aptos_framework::fungible_asset::Metadata;
     use aptos_framework::object;
@@ -18,6 +19,7 @@ module tapp::hook_factory {
     const EPOOL_NOT_IMPLEMENTED: u64 = 0xa10001;
     const E_INCENTIVE_TOKEN_NOT_FOUND: u64 = 0xb4;
     const E_INSUFFICIENT_INCENTIVE_RESERVE: u64 = 0xb5;
+    const ECALC_PLATFORM_FEE_UNSUPPORTED_HOOK: u64 = 0xb2;
 
     const PLATFORM_FEE_RATE_DENOMINATOR: u64 = 1_000_000;
     const DEFAULT_PLATFORM_FEE_RATE: u64 = 330_000;
@@ -233,86 +235,28 @@ module tapp::hook_factory {
         pool_addr: address, stream: &mut BCSStream
     ): (Option<address>, Option<u64>, vector<u8>) acquires PoolMeta {
         let pool_meta = { PoolMeta[pool_addr] };
-        let hook_type = pool_meta.hook_type;
 
         let platform_fee_asset: Option<address> = none();
         let platform_fee_amount: Option<u64> = none();
-
         let deducted_args = vector[];
 
-        if (hook_type == HOOK_V2) {
+        if (pool_meta.hook_type == HOOK_BASIC) {
             let a2b: bool = deserialize_bool(stream);
-            let fixed_amount_in: bool = deserialize_bool(stream);
             let amount_in: u64 = deserialize_u64(stream);
             let amount_out: u64 = deserialize_u64(stream);
 
-            let i = if (a2b) { 0 } else { 1 };
-            platform_fee_asset = some(pool_meta.assets[i]);
             let (_platform_fee_amount, pool_fee_rate) = calc_platform_fee(pool_addr, amount_in);
-            amount_in -= _platform_fee_amount;
-
+            amount_in -= _platform_fee_amount; // deduct platform fee
             deducted_args.append(to_bytes(&a2b));
-            deducted_args.append(to_bytes(&fixed_amount_in));
             deducted_args.append(to_bytes(&amount_in));
             deducted_args.append(to_bytes(&amount_out));
             deducted_args.append(to_bytes(&pool_fee_rate));
 
-            if (fixed_amount_in) {
+            if (_platform_fee_amount > 0) {
+                let asset_index = if (a2b) { 0 } else { 1 };
+                platform_fee_asset = some(pool_meta.assets[asset_index]);
                 platform_fee_amount = some(_platform_fee_amount);
-            }
-        };
-
-        if (hook_type == HOOK_V3) {
-            let a2b: bool = deserialize_bool(stream);
-            let fixed_amount_in: bool = deserialize_bool(stream);
-            let amount: u64 = deserialize_u64(stream);
-            let amount_limit: u64 = deserialize_u64(stream);
-            let sqrt_price: u128 = deserialize_u128(stream);
-
-            let i = if (a2b) { 0 } else { 1 };
-            platform_fee_asset = some(pool_meta.assets[i]);
-            deducted_args.append(to_bytes(&a2b));
-            deducted_args.append(to_bytes(&fixed_amount_in));
-            let _platform_fee_amount;
-            let pool_fee_rate;
-            if (fixed_amount_in) {
-                (_platform_fee_amount, pool_fee_rate) = calc_platform_fee(pool_addr, amount);
-                platform_fee_amount = some(_platform_fee_amount);
-                amount -= _platform_fee_amount;
-            } else {
-                (_platform_fee_amount, pool_fee_rate) = calc_platform_fee(pool_addr, amount_limit);
-                amount_limit -= _platform_fee_amount;
             };
-            deducted_args.append(to_bytes(&amount));
-            deducted_args.append(to_bytes(&amount_limit));
-            deducted_args.append(to_bytes(&sqrt_price));
-            deducted_args.append(to_bytes(&pool_fee_rate));
-        };
-
-        if (hook_type == HOOK_STABLE) {
-            let i: u64 = deserialize_u64(stream);
-            let j: u64 = deserialize_u64(stream);
-            let dx: u256 = deserialize_u256(stream);
-            let min_dy: u256 = deserialize_u256(stream);
-
-            platform_fee_asset = some(pool_meta.assets[i]);
-            let full_dynamic_rate = stable::stable::dynamic_fee(pool_addr, i, j);
-            let platform_fee_rate = full_dynamic_rate * (platform_fee_rate(pool_addr) as u256) /(PLATFORM_FEE_RATE_DENOMINATOR as u256);
-            let pool_fee_rate = full_dynamic_rate - platform_fee_rate;
-            let calc_platform_amt = dx * platform_fee_rate / (stable::stable::fee_denominator() as u256);
-            platform_fee_amount = some(calc_platform_amt as u64);
-            dx -= calc_platform_amt;
-
-            deducted_args.append(to_bytes(&i));
-            deducted_args.append(to_bytes(&j));
-            deducted_args.append(to_bytes(&dx));
-            deducted_args.append(to_bytes(&min_dy));
-            deducted_args.append(to_bytes(&(pool_fee_rate as u256)));
-        };
-
-        if (hook_type == HOOK_BONDING_CURVE) {
-            // Bonding curve handles fees internally, pass args through
-            return (none(), none(), vector[])
         };
 
         (
@@ -324,54 +268,29 @@ module tapp::hook_factory {
 
     public fun calc_platform_fee(pool_addr: address, amount: u64): (u64, u64) acquires PoolMeta {
         let hook_type = PoolMeta[pool_addr].hook_type;
-        if (hook_type == HOOK_V2) {
-            let platform_fee_rate = amm::amm::fee_rate(pool_addr)
+
+        if (hook_type == HOOK_BASIC) {
+          let platform_fee_rate = basic::basic::fee_rate(pool_addr)
                 * platform_fee_rate(pool_addr) / PLATFORM_FEE_RATE_DENOMINATOR;
-            let pool_fee_rate = amm::amm::fee_rate(pool_addr) - platform_fee_rate;
+            let pool_fee_rate = basic::basic::fee_rate(pool_addr) - platform_fee_rate;
             let platform_fee_amount = amount
-                * platform_fee_rate / amm::amm::fee_denominator();
+                * platform_fee_rate / basic::basic::fee_denom();
             return (
                 platform_fee_amount,
                 pool_fee_rate
             );
         };
 
-        if (hook_type == HOOK_V3) {
-            let platform_fee_rate = clmm::clmm::fee_rate(pool_addr)
-                * platform_fee_rate(pool_addr) / PLATFORM_FEE_RATE_DENOMINATOR;
-            let pool_fee_rate = clmm::clmm::fee_rate(pool_addr) - platform_fee_rate;
-            let platform_fee_amount = amount
-                * platform_fee_rate / clmm::math::fee_rate_denominator();
-            return (
-                platform_fee_amount,
-                pool_fee_rate,
-            );
+        if (hook_type == HOOK_ADVANCED) {
+          return (0, 0);
         };
 
-        if (hook_type == HOOK_STABLE) {
-            let platform_fee_rate = stable::stable::fee_rate(pool_addr)
-                * (platform_fee_rate(pool_addr) as u256) / (PLATFORM_FEE_RATE_DENOMINATOR as u256);
-            let pool_fee_rate = stable::stable::fee_rate(pool_addr) - platform_fee_rate;
-            let platform_fee_amount = (amount as u256)
-                * platform_fee_rate / stable::stable::fee_denominator();
-            return (
-                platform_fee_amount as u64,
-                pool_fee_rate as u64,
-            );
-        };
-
-        if (hook_type == HOOK_NFT_SPRINGBOARD) {
-            // For NFT Springboard, platform fee is calculated differently
-            // The NFT module handles its own fee structure
-            return (0, 0)
-        };
-
-        if (hook_type == HOOK_BONDING_CURVE) {
-            // Bonding curve handles fees internally
-            return (0, 0)
+        if (hook_type == HOOK_VAULT) {
+          return (0, 0);
         };
 
         abort ECALC_PLATFORM_FEE_UNSUPPORTED_HOOK
+
     }
 
     public(package) fun swap(
@@ -579,4 +498,3 @@ module tapp::hook_factory {
         PoolMeta[pool_addr].reserves
     }
 }
-
