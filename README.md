@@ -168,44 +168,55 @@ User ← Router::(LiquidityRemoved event and do_accounting) ← HookFactory (hoo
 
 ### 4. Swap Flow
 
-```
-User → Router::swap() → HookFactory::swap() → Hook::swap()
-                                              ↓
-                                         Price Calculation
-                                              ↓
-                                         Asset Exchange
-                                              ↓
-User ← Router::(Swapped event and do_accounting) ← HookFactory (hook_factory::Tx) ← Hook::Swapped event
+```mermaid
+flowchart LR
+    User --> Router[Router::swap]
+    Router --> Factory[HookFactory::swap]
+    Factory --> Hook[Hook::swap]
+    Hook --> Price[Price calculation]
+    Price --> Exchange[Asset exchange]
+    Exchange --> Event[Hook::Swapped event]
+    Event --> Tx[HookFactory / hook_factory::Tx]
+    Tx --> RouterEvent[Router::Swapped event + do_accounting]
+    RouterEvent --> User
 ```
 
 ### 5. Collect Fee Flow
 
-```
-User → Router::collect_fee() → HookFactory::collect_fee() → Hook::collect_fee()
-                                                           ↓
-                                                      Fee Calculation
-                                                           ↓
-                                                      Asset Distribution
-                                                           ↓
-User ← Router::(FeeCollected event and do_accounting) ← HookFactory (hook_factory::Tx) ← Hook::CollectedFee event
+```mermaid
+flowchart LR
+    User --> Router[Router::collect_fee]
+    Router --> Factory[HookFactory::collect_fee]
+    Factory --> Hook[Hook::collect_fee]
+    Hook --> Calc[Fee calculation]
+    Calc --> Dist[Asset distribution]
+    Dist --> Event[Hook::CollectedFee event]
+    Event --> Tx[HookFactory / hook_factory::Tx]
+    Tx --> RouterEvent[Router::FeeCollected event + do_accounting]
+    RouterEvent --> User
 ```
 
 ### 6. Pool Operation Flow
 
-```
-User → Router::run_pool_op() → HookFactory::run_pool_op() → Hook::run_pool_op()
-                                                           ↓
-                                                      Custom Operations
-                                                           ↓
-                                                      State Updates
-                                                           ↓
-                                                      Event Emission
+```mermaid
+flowchart LR
+    User --> Router[Router::run_pool_op]
+    Router --> Factory[HookFactory::run_pool_op]
+    Factory --> Hook[Hook::run_pool_op]
+    Hook --> Ops[Custom operations]
+    Ops --> State[State updates]
+    State --> Event[Event emission]
 ```
 
 ### 7. Asset Management Flow
 
-```
-Hook (asset accounting) → HookFactory (hook_factory::Tx) → Router::do_accounting() → Asset Transfers → PoolMeta reserve updates
+```mermaid
+flowchart LR
+    Hook[Hook asset accounting]
+        --> HF[HookFactory / hook_factory::Tx]
+        --> RA[router::do_accounting]
+        --> AT[Asset transfers]
+        --> RES[PoolMeta reserve updates]
 ```
 
 ### 8. Platform Fee Flow
