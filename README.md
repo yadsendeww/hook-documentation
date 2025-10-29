@@ -208,6 +208,23 @@ User → Router::run_pool_op() → HookFactory::run_pool_op() → Hook::run_pool
 Hook (asset accounting) → HookFactory (hook_factory::Tx) → Router::do_accounting() → Asset Transfers → PoolMeta reserve updates
 ```
 
+### 8. Platform Fee Flow
+
+```mermaid
+flowchart TD
+    U[User] --> S[Router::swap()]
+    S --> PF[hook_factory::extract_platform_fee()]
+    PF --> HF[HookFactory::swap()]
+    HF --> H[Hook::swap()]
+    H --> TX[Swap Tx vector<br/>(hook_factory::Tx)]
+    TX --> ACC1[Router::do_accounting(txs)]
+    ACC1 --> EVT[Router::Swapped event emission]
+    EVT --> D{platform fee amount > 0?}
+    D -->|No| DONE[Flow complete]
+    D -->|Yes| ACC2[Router::do_accounting([pf tx])]
+    ACC2 --> RES[Platform fee reserve accrual]
+```
+
 ## Submission
 
 ### Checklists Before Submission
@@ -237,4 +254,3 @@ When the submission is ready, we'll schedule **TestNet** testing together. These
 5. Test position management
 
 We will contact you directly to schedule the next steps.
-
