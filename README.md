@@ -143,7 +143,6 @@ flowchart LR
     State --> Event[Hook::Created event]
     Event --> FactoryBack[HookFactory processing]
     FactoryBack --> RouterEvent[Router::PoolCreated event]
-    RouterEvent --> User
 ```
 
 ### 2. Add Liquidity Flow
