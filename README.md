@@ -135,7 +135,7 @@ Every hook module must implement the following interface functions. Go to here: 
 ### 1. Pool Creation Flow
 
 ```mermaid
-flowchart LR
+flowchart TD
     User --> Router[Router::create_pool]
     Router --> Factory[HookFactory::create_pool]
     Factory --> Hook[Hook::create_pool]
@@ -148,7 +148,7 @@ flowchart LR
 ### 2. Add Liquidity Flow
 
 ```mermaid
-flowchart LR
+flowchart TD
     User --> Router[Router::add_liquidity]
     Router --> Factory[HookFactory::add_liquidity]
     Factory --> Hook[Hook::add_liquidity]
@@ -162,7 +162,7 @@ flowchart LR
 ### 3. Remove Liquidity Flow
 
 ```mermaid
-flowchart LR
+flowchart TD
     User --> Router[Router::remove_liquidity]
     Router --> Factory[HookFactory::remove_liquidity]
     Factory --> Hook[Hook::remove_liquidity]
@@ -176,7 +176,7 @@ flowchart LR
 ### 4. Swap Flow
 
 ```mermaid
-flowchart LR
+flowchart TD
     User --> Router[Router::swap]
     Router --> Factory[HookFactory::swap]
     Factory --> Hook[Hook::swap]
@@ -190,7 +190,7 @@ flowchart LR
 ### 5. Collect Fee Flow
 
 ```mermaid
-flowchart LR
+flowchart TD
     User --> Router[Router::collect_fee]
     Router --> Factory[HookFactory::collect_fee]
     Factory --> Hook[Hook::collect_fee]
@@ -204,7 +204,7 @@ flowchart LR
 ### 6. Pool Operation Flow
 
 ```mermaid
-flowchart LR
+flowchart TD
     User --> Router[Router::run_pool_op]
     Router --> Factory[HookFactory::run_pool_op]
     Factory --> Hook[Hook::run_pool_op]
@@ -216,7 +216,7 @@ flowchart LR
 ### 7. Asset Management Flow
 
 ```mermaid
-flowchart LR
+flowchart TD
     Hook[Hook asset accounting]
         --> HF[HookFactory / hook_factory::Tx]
         --> RA[router::do_accounting]
